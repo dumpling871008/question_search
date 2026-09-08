@@ -1,131 +1,129 @@
 import Fuse from "fuse.js";
+import extractKeywords, { normalizeText } from "./extractKeywords.js";
 
-function normalizeText(text) {
-  return String(text || "")
-    .trim()
-    .toLowerCase();
-}
-
-function calculateRankingScore(item, keyword, fuseScore) {
-  const searchText = normalizeText(keyword);
-
+export function calculateRankingScore(item, keyword, keywords, fuseScore) {
   const question = normalizeText(item.question);
   const context = normalizeText(item.context);
+  const options = Object.values(item.options || {}).map(normalizeText);
+  const searchText = normalizeText(keyword);
 
-  const options = Object.values(item.options || {})
-    .map(normalizeText);
+  let matchedKeywords = 0;
+  let fieldScore = 0;
 
-  let score = 0;
+  for (const word of keywords) {
+    // 每個詞只計算一次，採用命中欄位中的最高權重。
+    const weight = question.includes(word) ? 1
+      : context.includes(word) ? 0.5
+        : options.some((option) => option.includes(word)) ? 0.25 : 0;
 
-  // 1. 題目完全等於搜尋內容
-  if (question === searchText) {
-    score += 150;
+    if (weight > 0) matchedKeywords += 1;
+    fieldScore += weight;
   }
 
-  // 2. 題目包含完整關鍵字
-  else if (question.includes(searchText)) {
-    score += 100;
+  // Coverage 是正規化後的 substring 命中比例，不將 fuzzy 誤差當精確命中。
+  const keywordCoverage = matchedKeywords / keywords.length;
+  const exactScore = question === searchText ? 1
+    : question.includes(searchText) ? 0.75
+      : context.includes(searchText) ? 0.5
+        : options.some((option) => option.includes(searchText)) ? 0.25 : 0;
+
+  // 多命中一詞增加 100 / N 分；其餘加分合計最多 90 / N，確保 coverage 優先。
+  const rankingScore = keywordCoverage * 100 + (
+    40 * fieldScore / keywords.length +
+    30 * exactScore +
+    20 * (1 - fuseScore)
+  ) / keywords.length;
+
+  return { rankingScore, keywordCoverage };
+}
+
+function mergeMatches(matches) {
+  const fields = new Map();
+
+  for (const match of matches) {
+    if (!fields.has(match.key)) {
+      fields.set(match.key, { ...match, indices: [] });
+    }
+    fields.get(match.key).indices.push(...match.indices);
   }
 
-  // 3. 題目開頭就出現關鍵字
-  if (question.startsWith(searchText)) {
-    score += 30;
-  }
+  return [...fields.values()].map((match) => {
+    const indices = [];
+    const sorted = [...match.indices].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 
-  // 4. 題組背景包含關鍵字
-  if (context.includes(searchText)) {
-    score += 40;
-  }
+    for (const [start, end] of sorted) {
+      const previous = indices[indices.length - 1];
+      if (previous && start <= previous[1] + 1) {
+        previous[1] = Math.max(previous[1], end);
+      } else {
+        indices.push([start, end]);
+      }
+    }
 
-  // 5. 選項包含關鍵字
-  if (options.some((option) => option.includes(searchText))) {
-    score += 20;
-  }
-
-  // 6. Fuse fuzzy score
-  // Fuse score 越小越相關
-  const fuzzyScore = (1 - (fuseScore ?? 1)) * 50;
-
-  score += fuzzyScore;
-
-  return score;
+    // 保留 Fuse 在原始字串上的位置，QuestionCard 不需修改。
+    return { ...match, indices };
+  });
 }
 
 function searchQuestions(questions, keyword) {
-  const cleanKeyword = keyword.trim();
+  const keywords = extractKeywords(keyword);
 
-  if (!cleanKeyword) {
-    return {
-      results: [],
-      total: 0,
-    };
+  if (!keywords.length) {
+    return { results: [], total: 0 };
   }
 
   const fuse = new Fuse(questions, {
     keys: [
-      {
-        name: "question",
-        weight: 2,
-      },
-      {
-        name: "context",
-        weight: 1,
-      },
-      {
-        name: "options.A",
-        weight: 0.5,
-      },
-      {
-        name: "options.B",
-        weight: 0.5,
-      },
-      {
-        name: "options.C",
-        weight: 0.5,
-      },
-      {
-        name: "options.D",
-        weight: 0.5,
-      },
+      { name: "question", weight: 2 },
+      { name: "context", weight: 1 },
+      { name: "options.A", weight: 0.5 },
+      { name: "options.B", weight: 0.5 },
+      { name: "options.C", weight: 0.5 },
+      { name: "options.D", weight: 0.5 },
     ],
-
     threshold: 0.35,
     ignoreLocation: true,
     includeScore: true,
     includeMatches: true,
   });
 
-  // 先讓 Fuse 找所有候選
-  const candidates = fuse.search(cleanKeyword);
+  // OR retrieval：任一詞命中即納入候選；以原始索引合併，不依賴題號唯一性。
+  const candidates = new Map();
+  for (const word of keywords) {
+    for (const result of fuse.search(word)) {
+      if (!candidates.has(result.refIndex)) {
+        candidates.set(result.refIndex, {
+          item: result.item,
+          refIndex: result.refIndex,
+          scoreSum: keywords.length,
+          matches: [],
+        });
+      }
 
-  // 再進行自己的 ranking
-  const rankedResults = candidates
-    .map((result) => {
-      const rankingScore = calculateRankingScore(
-        result.item,
-        cleanKeyword,
-        result.score
-      );
+      const candidate = candidates.get(result.refIndex);
+      // 未命中的詞以最差分數 1 計算，避免只匹配一詞卻取得過高平均分。
+      candidate.scoreSum += (result.score ?? 1) - 1;
+      candidate.matches.push(...(result.matches || []));
+    }
+  }
 
-      return {
-        ...result.item,
-
-        fuseMatches: result.matches || [],
-
-        fuseScore: result.score,
-
-        rankingScore,
-      };
-    })
-
-    // rankingScore 越大越相關
-    .sort((a, b) => b.rankingScore - a.rankingScore);
+  const rankedResults = [...candidates.values()].map((candidate) => {
+    const fuseScore = Math.max(0, Math.min(1, candidate.scoreSum / keywords.length));
+    return {
+      refIndex: candidate.refIndex,
+      item: {
+        ...candidate.item,
+        fuseMatches: mergeMatches(candidate.matches),
+        fuseScore,
+        ...calculateRankingScore(candidate.item, keyword, keywords, fuseScore),
+      },
+    };
+  }).sort((a, b) =>
+    b.item.rankingScore - a.item.rankingScore || a.refIndex - b.refIndex
+  );
 
   return {
-    // 最後才取前三名
-    results: rankedResults.slice(0, 3),
-
-    // Fuse 總共找到幾筆
+    results: rankedResults.slice(0, 3).map((result) => result.item),
     total: rankedResults.length,
   };
 }

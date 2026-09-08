@@ -1,16 +1,57 @@
-# React + Vite
+# Question Search｜題庫模糊搜尋系統
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+使用 **React + Vite + Fuse.js** 開發的前端題庫搜尋網站。
 
-Currently, two official plugins are available:
+使用者輸入關鍵字後，系統會從題目、題組背景與選項中搜尋可能相關的內容，
+再根據欄位重要程度與模糊匹配結果進行 Ranking，
+最後顯示最相關的 Top 3 題目。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Demo
 
-## React Compiler
+Vercel：
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+https://question-search-sigma.vercel.app/
 
-## Expanding the Oxlint configuration
+## Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- 關鍵字搜尋
+- Fuse.js 模糊搜尋
+- 題目、題組背景、選項皆可搜尋
+- 自訂搜尋 Ranking
+- 顯示 Top 3 最相關結果
+- 搜尋關鍵字 Highlight
+- Debounce 搜尋
+- Enter 立即搜尋
+- Escape / 清除按鈕
+- 無搜尋結果提示
+- Responsive UI
+
+## Tech Stack
+
+- React
+- Vite
+- JavaScript
+- Fuse.js
+- CSS
+- Vercel
+
+## Search Flow
+
+搜尋流程：
+
+```text
+User Input
+    ↓
+Debounce
+    ↓
+Fuse.js Fuzzy Search
+    ↓
+Candidate Results
+    ↓
+Custom Ranking
+    ↓
+Sort by Relevance Score
+    ↓
+Top 3 Results
+    ↓
+Highlight Matching Text
