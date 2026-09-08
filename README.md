@@ -55,3 +55,4 @@ Sort by Relevance Score
 Top 3 Results
     ↓
 Highlight Matching Text
+```
