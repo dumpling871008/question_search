@@ -33,10 +33,12 @@ function App() {
   }, []);
 
   // 呼叫 searchQuestions.js
-  const filteredQuestions = useMemo(() => {
+  const searchResults = useMemo(() => {
     return searchQuestions(questions, debouncedKeyword);
   }, [questions, debouncedKeyword]);
-
+  
+  const filteredQuestions = searchResults.results;
+  const totalResults = searchResults.total;
   return (
     <main className="app">
       <section className="search-section">
@@ -55,10 +57,11 @@ function App() {
 
       {keyword.trim() && (
         <section className="results-section">
-          {filteredQuestions.length > 0 ? (
+          {searchResults.results.length > 0 ? (
             <>
               <p className="result-count">
-                找到 {filteredQuestions.length} 個相關結果
+                找到 {totalResults} 筆相關題目，
+                顯示最相關的 {filteredQuestions.length} 筆
               </p>
 
               <div className="question-list">
