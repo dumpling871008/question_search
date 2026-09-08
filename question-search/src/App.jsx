@@ -40,23 +40,25 @@ function App() {
   const filteredQuestions = searchResults.results;
   const totalResults = searchResults.total;
   return (
-    <main className="app">
-      <section className="search-section">
-        <h1>題庫搜尋</h1>
+    <main className="page">
+      <section className="hero">
+        <div className="hero-content">
+          <h1>題庫搜尋</h1>
 
-        <p className="search-description">
-          輸入關鍵字，搜尋最相關的題目
-        </p>
+          <p className="subtitle">
+            輸入關鍵字，搜尋最相關的題目
+          </p>
 
-        <SearchBar
-          keyword={keyword}
-          setKeyword={setKeyword}
-          onSearch={handleSearch}
-        />
+          <SearchBar
+            keyword={keyword}
+            setKeyword={setKeyword}
+            onSearch={handleSearch}
+          />
+        </div>
       </section>
 
       {keyword.trim() && (
-        <section className="results-section">
+        <section className="content">
           {searchResults.results.length > 0 ? (
             <>
               <p className="result-count">
@@ -64,7 +66,7 @@ function App() {
                 顯示最相關的 {filteredQuestions.length} 筆
               </p>
 
-              <div className="question-list">
+              <div className="results">
                 {filteredQuestions.map((item, index) => (
                   <QuestionCard
                     key={item.question_number}
