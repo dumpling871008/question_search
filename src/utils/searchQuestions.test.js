@@ -11,15 +11,33 @@ const data = JSON.parse(readFileSync(
 test("NFKC、模板、stop words、去重；保留英文與數字", () => {
   assert.deepEqual(
     extractKeywords("請問，下列何者正確？ ＡＰＰＬＥ apple，１２３ A 水 的"),
-    ["apple", "123", "a"]
+    ["apple", "123", "a", "水"]
   );
   assert.deepEqual(extractKeywords("何者最適當？最可能為何者？"), []);
 });
 
-test("空輸入、標點、模板與單一中文字不產生候選", () => {
-  for (const input of ["", "  ", "！？", "下列何者正確", "水"]) {
+test("空輸入、標點、模板與停用詞不產生候選", () => {
+  for (const input of ["", "  ", "！？", "下列何者正確", "的", "是", "在",
+    "一", "二", "三", "甲", "乙", "丙", "丁", "圖", "表", "上", "下"]) {
     assert.deepEqual(searchQuestions(data, input), { results: [], total: 0 });
   }
+});
+
+test("保留單字查詢並能找到包含該字的題目", () => {
+  for (const word of ["光", "水"]) {
+    assert.deepEqual(extractKeywords(word), [word]);
+    const result = searchQuestions(data, word);
+    assert(result.total > 0);
+    assert(result.results.some((item) =>
+      [item.question, item.context, ...Object.values(item.options || {})]
+        .some((text) => text?.includes(word))
+    ));
+  }
+});
+
+test("完整句子也保留非停用詞的單字，並移除題型與低資訊詞", () => {
+  assert.deepEqual(extractKeywords("請問，光與水的關係為何？圖 甲"),
+    ["光", "水", "關係", "為何"]);
 });
 
 test("短中文詞與英文拼字誤差仍可搜尋", () => {

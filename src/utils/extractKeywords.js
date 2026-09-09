@@ -6,6 +6,11 @@ const stopWords = new Set([
   "的", "了", "是", "在", "有", "為", "與", "和", "或", "及", "於",
   "中", "之", "其", "此", "該", "若", "則", "請", "下列", "何者",
   "何種", "何項", "選項", "敘述", "正確", "錯誤", "最", "較",
+  // 單字型低資訊詞
+  "一", "二", "三",
+  "甲", "乙", "丙", "丁",
+  "圖", "表",
+  "上", "下",
 ]);
 
 export function normalizeText(text) {
@@ -22,7 +27,7 @@ function extractKeywords(text) {
   const keywords = new Set();
 
   for (const { segment, isWordLike } of segmenter.segment(cleanText)) {
-    if (!isWordLike || stopWords.has(segment) || /^\p{Script=Han}$/u.test(segment)) {
+    if (!isWordLike || stopWords.has(segment)) {
       continue;
     }
     keywords.add(segment);

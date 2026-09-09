@@ -94,7 +94,7 @@ Highlight
 Intl.Segmenter("zh-TW", { granularity: "word" })
 ```
 
-進行斷詞，並過濾 stop words、單一中文字與重複詞。
+進行斷詞、過濾 stop words 並去除重複詞。非停用詞的單一中文字（例如「光」「水」）會保留，適用於單字查詢與完整題目；「的」「是」「甲」「圖」等低資訊詞仍會排除。
 
 此階段只負責取得可用搜尋詞，不決定詞的重要性，也沒有針對特定科目 hard-code 搜尋規則。
 
@@ -258,7 +258,7 @@ Output Directory: dist
 
 * 目前屬於 **lexical / fuzzy search**，不是 semantic search，未使用 embeddings 或 cosine similarity。
 * 如果兩個題目語意相近，但使用完全不同的詞彙，目前可能無法正確匹配。
-* 單一中文字會被關鍵詞過濾。
+* 支援非停用詞的單字搜尋，但單字涵蓋範圍較廣，結果可能較不精準；停用詞仍會被過濾。
 * `Intl.Segmenter` 不保證所有專有名詞都能完整斷詞。
 * 尚未加入 domain vocabulary 或 synonym expansion。
 * 題庫目前以 JSON 載入前端，尚未驗證大型題庫下的搜尋效能。
